@@ -3,9 +3,11 @@ package six.six.keycloak.requiredaction.action.required;
 import org.jboss.logging.Logger;
 import org.keycloak.authentication.RequiredActionContext;
 import org.keycloak.authentication.RequiredActionProvider;
+import org.keycloak.authentication.AuthenticationFlowError;
 import org.keycloak.models.UserModel;
 import six.six.keycloak.KeycloakSmsConstants;
 import six.six.keycloak.MobileNumberHelper;
+import six.six.keycloak.authenticator.KeycloakSmsAuthenticator;
 
 import javax.ws.rs.core.Response;
 import java.util.ArrayList;
