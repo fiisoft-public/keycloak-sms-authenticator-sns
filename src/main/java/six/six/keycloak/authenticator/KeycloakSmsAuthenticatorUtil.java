@@ -31,6 +31,7 @@ import java.util.Random;
 public class KeycloakSmsAuthenticatorUtil {
 
     private static Logger logger = Logger.getLogger(KeycloakSmsAuthenticatorUtil.class);
+    public static AuthenticatorConfigModel CURRENT_APP_CONFIG = null;
 
     public static String getAttributeValue(UserModel user, String attributeName) {
         String result = null;
@@ -108,7 +109,7 @@ public class KeycloakSmsAuthenticatorUtil {
         return text;
     }
 
-    public static String setDefaultCountryCodeIfZero(String mobileNumber,String prefix ,String condition) {
+    public static String setDefaultCountryCodeIfZero(String mobileNumber, String prefix , String condition) {
 
         if (prefix!=null && condition!=null && mobileNumber.startsWith(condition)) {
             mobileNumber = prefix + mobileNumber.substring(1);
@@ -162,6 +163,59 @@ public class KeycloakSmsAuthenticatorUtil {
         return result;
     }
 
+    public static boolean sendSmsCode(String mobileNumber, String code, RequiredActionContext context) {
+        AuthenticatorConfigModel config = KeycloakSmsAuthenticatorUtil.CURRENT_APP_CONFIG;
+
+        // Send an SMS
+        KeycloakSmsAuthenticatorUtil.logger.debug("Sending " + code + "  to mobileNumber " + mobileNumber);
+
+        String smsUsr = EnvSubstitutor.envSubstitutor.replace(getConfigString(config, KeycloakSmsConstants.CONF_PRP_SMS_CLIENTTOKEN));
+        String smsPwd = EnvSubstitutor.envSubstitutor.replace(getConfigString(config, KeycloakSmsConstants.CONF_PRP_SMS_CLIENTSECRET));
+        String gateway = getConfigString(config, KeycloakSmsConstants.CONF_PRP_SMS_GATEWAY);
+
+        // LyraSMS properties
+        String endpoint = EnvSubstitutor.envSubstitutor.replace(getConfigString(config, KeycloakSmsConstants.CONF_PRP_SMS_GATEWAY_ENDPOINT));
+        boolean isProxy = getConfigBoolean(config, KeycloakSmsConstants.PROXY_ENABLED);
+
+        // GOV.UK Notify properties
+        String notifyApiKey = System.getenv(KeycloakSmsConstants.NOTIFY_API_KEY);
+        String notifyTemplate = System.getenv(KeycloakSmsConstants.NOTIFY_TEMPLATE_ID);
+
+        // Create the SMS message body
+        String template = getMessage(context, KeycloakSmsConstants.CONF_PRP_SMS_TEXT);
+        String smsText = createMessage(template, code, mobileNumber);
+
+        boolean result;
+        SMSService smsService;
+        try {
+            Gateways g = Gateways.valueOf(gateway);
+            switch(g) {
+                case LYRA_SMS:
+                    smsService = new LyraSMSService(endpoint,isProxy);
+                    break;
+                case GOVUK_NOTIFY:
+                    smsService = new NotifySMSService(notifyApiKey, notifyTemplate);
+                    break;
+                default:
+                    smsService = new SnsNotificationService();
+            }
+
+            String addDefaultPrefix = setDefaultCountryCodeIfZero(mobileNumber, getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT), getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION));
+            String actualPhone = checkMobileNumber(setDefaultCountryCodeIfZero(mobileNumber, getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT), getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION)));
+
+            logger.debug("Prefix: " + getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT));
+            logger.debug("Condition: " + getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION));
+            logger.debug("Input phone: " + mobileNumber);
+            logger.debug("After fix prefix: " + addDefaultPrefix);
+            logger.debug("Actualphone: " + actualPhone);
+
+            result = smsService.send(checkMobileNumber(setDefaultCountryCodeIfZero(mobileNumber, getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT), getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION))), smsText, smsUsr, smsPwd);
+          return result;
+       } catch(Exception e) {
+            logger.error("Fail to send SMS " ,e );
+            return false;
+        }
+    }
 
     static boolean sendSmsCode(String mobileNumber, String code, AuthenticationFlowContext context) {
         final AuthenticatorConfigModel config = context.getAuthenticatorConfig();
@@ -200,7 +254,16 @@ public class KeycloakSmsAuthenticatorUtil {
                     smsService = new SnsNotificationService();
             }
 
-            result=smsService.send(checkMobileNumber(setDefaultCountryCodeIfZero(mobileNumber, getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT), getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION))), smsText, smsUsr, smsPwd);
+            String addDefaultPrefix = setDefaultCountryCodeIfZero(mobileNumber, getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT), getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION));
+            String actualPhone = checkMobileNumber(setDefaultCountryCodeIfZero(mobileNumber, getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT), getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION)));
+
+            logger.debug("Prefix: " + getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT));
+            logger.debug("Condition: " + getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION));
+            logger.debug("Input phone: " + mobileNumber);
+            logger.debug("After fix prefix: " + addDefaultPrefix);
+            logger.debug("Actualphone: " + actualPhone);
+
+            result = smsService.send(checkMobileNumber(setDefaultCountryCodeIfZero(mobileNumber, getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT), getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION))), smsText, smsUsr, smsPwd);
           return result;
        } catch(Exception e) {
             logger.error("Fail to send SMS " ,e );
@@ -208,7 +271,7 @@ public class KeycloakSmsAuthenticatorUtil {
         }
     }
 
-    static String getSmsCode(long nrOfDigits) {
+    public static String getSmsCode(long nrOfDigits) {
         if (nrOfDigits < 1) {
             throw new RuntimeException("Number of digits must be bigger than 0");
         }

@@ -116,6 +116,7 @@ public class KeycloakSmsAuthenticator implements Authenticator {
 
         if (mobileNumber == null || (!mobileNumber.equals(mobileNumberVerified))) {
             logger.debug("SMSAuth is on, and no verified phone -> ask for one");
+            KeycloakSmsAuthenticatorUtil.CURRENT_APP_CONFIG = config;
             user.addRequiredAction(KeycloakSmsMobilenumberRequiredAction.PROVIDER_ID);
             context.success();
         }
@@ -152,7 +153,7 @@ public class KeycloakSmsAuthenticator implements Authenticator {
 
             case VALID:
                 context.success();
-                updateVerifiedMobilenumber(context);
+                // updateVerifiedMobilenumber(context);
                 break;
 
         }
