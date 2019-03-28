@@ -164,8 +164,12 @@ public class KeycloakSmsAuthenticatorUtil {
     }
 
     public static boolean sendSmsCode(String mobileNumber, String code, RequiredActionContext context) {
+        /*
+            Send SMS code in RequiredActionContext context
+            This method is used in verify phone number step in the required action context
+            This method required variable `config`
+        */
         AuthenticatorConfigModel config = KeycloakSmsAuthenticatorUtil.CURRENT_APP_CONFIG;
-
         // Send an SMS
         KeycloakSmsAuthenticatorUtil.logger.debug("Sending " + code + "  to mobileNumber " + mobileNumber);
 
@@ -201,23 +205,20 @@ public class KeycloakSmsAuthenticatorUtil {
             }
 
             String addDefaultPrefix = setDefaultCountryCodeIfZero(mobileNumber, getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT), getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION));
-            String actualPhone = checkMobileNumber(setDefaultCountryCodeIfZero(mobileNumber, getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT), getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION)));
+            String actualPhone = checkMobileNumber(addDefaultPrefix);
 
-            logger.debug("Prefix: " + getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT));
-            logger.debug("Condition: " + getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION));
-            logger.debug("Input phone: " + mobileNumber);
-            logger.debug("After fix prefix: " + addDefaultPrefix);
-            logger.debug("Actualphone: " + actualPhone);
-
-            result = smsService.send(checkMobileNumber(setDefaultCountryCodeIfZero(mobileNumber, getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT), getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION))), smsText, smsUsr, smsPwd);
-          return result;
+            result = smsService.send(actualPhone, smsText, smsUsr, smsPwd);
+            return result;
        } catch(Exception e) {
             logger.error("Fail to send SMS " ,e );
             return false;
         }
     }
 
-    static boolean sendSmsCode(String mobileNumber, String code, AuthenticationFlowContext context) {
+    public static boolean sendSmsCode(String mobileNumber, String code, AuthenticationFlowContext context) {
+        /*
+            Send SMS code in AuthenticationFlowContext context
+        */
         final AuthenticatorConfigModel config = context.getAuthenticatorConfig();
 
         // Send an SMS
@@ -255,15 +256,9 @@ public class KeycloakSmsAuthenticatorUtil {
             }
 
             String addDefaultPrefix = setDefaultCountryCodeIfZero(mobileNumber, getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT), getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION));
-            String actualPhone = checkMobileNumber(setDefaultCountryCodeIfZero(mobileNumber, getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT), getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION)));
+            String actualPhone = checkMobileNumber(addDefaultPrefix);
 
-            logger.debug("Prefix: " + getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT));
-            logger.debug("Condition: " + getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION));
-            logger.debug("Input phone: " + mobileNumber);
-            logger.debug("After fix prefix: " + addDefaultPrefix);
-            logger.debug("Actualphone: " + actualPhone);
-
-            result = smsService.send(checkMobileNumber(setDefaultCountryCodeIfZero(mobileNumber, getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT), getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION))), smsText, smsUsr, smsPwd);
+            result = smsService.send(actualPhone, smsText, smsUsr, smsPwd);
           return result;
        } catch(Exception e) {
             logger.error("Fail to send SMS " ,e );

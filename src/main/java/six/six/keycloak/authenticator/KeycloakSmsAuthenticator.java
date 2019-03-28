@@ -35,11 +35,6 @@ public class KeycloakSmsAuthenticator implements Authenticator {
         EXPIRED
     }
 
-
-    private boolean isOnlyForVerificationMode(boolean onlyForVerification, String mobileNumber, String mobileNumberVerified) {
-        return (mobileNumber == null || onlyForVerification == true && !mobileNumber.equals(mobileNumberVerified));
-    }
-
     private String getMobileNumber(UserModel user) {
         return MobileNumberHelper.getMobileNumber(user);
     }
@@ -95,9 +90,8 @@ public class KeycloakSmsAuthenticator implements Authenticator {
             return;
         }
 
-        // Optional || Required, Optional && phone, Required && phone
         if (mobileNumberVerified != null) {
-            logger.debug("Phone is verified and SMSAuth is on -> send code");
+            logger.debug("SMSAuth is on, phone is verified -> send code");
 
             boolean result = this.send2FACodeViaSMS(context, mobileNumberVerified);
             logger.debug("SMS send status: " + result);
@@ -114,12 +108,11 @@ public class KeycloakSmsAuthenticator implements Authenticator {
             return;
         }
 
-        if (mobileNumber == null || (!mobileNumber.equals(mobileNumberVerified))) {
-            logger.debug("SMSAuth is on, and no verified phone -> ask for one");
-            KeycloakSmsAuthenticatorUtil.CURRENT_APP_CONFIG = config;
-            user.addRequiredAction(KeycloakSmsMobilenumberRequiredAction.PROVIDER_ID);
-            context.success();
-        }
+
+        logger.debug("SMSAuth is on, and no verified phone -> ask for one");
+        KeycloakSmsAuthenticatorUtil.CURRENT_APP_CONFIG = config;
+        user.addRequiredAction(KeycloakSmsMobilenumberRequiredAction.PROVIDER_ID);
+        context.success();
     }
 
     @Override
@@ -144,7 +137,6 @@ public class KeycloakSmsAuthenticator implements Authenticator {
 
             case VALID:
                 context.success();
-                // updateVerifiedMobilenumber(context);
                 break;
         }
     }

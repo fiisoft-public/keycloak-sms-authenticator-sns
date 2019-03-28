@@ -53,7 +53,7 @@ public class KeycloakSmsMobilenumberRequiredAction implements RequiredActionProv
     public void processAction(RequiredActionContext context) {
         logger.debug("processAction called ...");
 
-        String phoneNumberInput = (context.getHttpRequest().getDecodedFormParameters().getFirst("mobile_number"));
+        String phoneNumberInput = context.getHttpRequest().getDecodedFormParameters().getFirst(KeycloakSmsConstants.ATTR_MOBILE);
         UserModel user = context.getUser();
         String smsCode = context.getHttpRequest().getDecodedFormParameters().getFirst(KeycloakSmsConstants.ANSW_SMS_CODE);
         logger.debug("RequiredActionChain recieve phone: " + phoneNumberInput + " and smsCode: " + smsCode);
