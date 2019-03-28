@@ -155,7 +155,6 @@ public class KeycloakSmsAuthenticator implements Authenticator {
                 context.success();
                 // updateVerifiedMobilenumber(context);
                 break;
-
         }
     }
 
