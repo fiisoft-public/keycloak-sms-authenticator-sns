@@ -55,7 +55,7 @@ public class KeycloakSmsMobilenumberRequiredAction implements RequiredActionProv
 
         String phoneNumberInput = (context.getHttpRequest().getDecodedFormParameters().getFirst("mobile_number"));
         UserModel user = context.getUser();
-        String smsCode = (context.getHttpRequest().getDecodedFormParameters().getFirst("smsCode"));
+        String smsCode = context.getHttpRequest().getDecodedFormParameters().getFirst(KeycloakSmsConstants.ANSW_SMS_CODE);
         logger.debug("RequiredActionChain recieve phone: " + phoneNumberInput + " and smsCode: " + smsCode);
 
 
@@ -70,16 +70,15 @@ public class KeycloakSmsMobilenumberRequiredAction implements RequiredActionProv
             logger.debug("It's time to verify this phone number");
 
             boolean result = this.send2FACodeViaSMS(context, MobileNumberHelper.getMobileNumber(user));
+            
+            // config is used in send SMS code, after that, erase to avoid leak config
+            KeycloakSmsAuthenticatorUtil.CURRENT_APP_CONFIG = null;
+            
             logger.debug("SMS send status: " + result);
 
             if (result) {
                 Response challenge = context.form().createForm("sms-verify-phone-validation.ftl");
                 context.challenge(challenge);
-
-                List<String> mobileNumberCreds = user.getAttribute(KeycloakSmsConstants.ATTR_MOBILE);
-                if (mobileNumberCreds != null && !mobileNumberCreds.isEmpty()) {
-                    user.setAttribute(KeycloakSmsConstants.ATTR_MOBILE_VERIFIED,mobileNumberCreds);
-                }
 
             } else {
                 Response challenge = context.form()
@@ -98,15 +97,19 @@ public class KeycloakSmsMobilenumberRequiredAction implements RequiredActionProv
 
         if (smsCode != null) {
             logger.debug("Check the smsCode to verify phone");
-            CODE_STATUS status = this.validateCode(context);
+            CODE_STATUS status = this.validateCode(context, smsCode);
 
             switch (status) {
                 case VALID:
                     context.success();
+
                     List<String> mobileNumberCreds = user.getAttribute(KeycloakSmsConstants.ATTR_MOBILE);
-                    user.setAttribute(KeycloakSmsConstants.ATTR_MOBILE_VERIFIED, mobileNumberCreds);
+                    if (mobileNumberCreds != null && !mobileNumberCreds.isEmpty()) {
+                        user.setAttribute(KeycloakSmsConstants.ATTR_MOBILE_VERIFIED, mobileNumberCreds);
+                    }
                     logger.debug("verified number: Success");
                     break;
+
                 case INVALID:
                     logger.debug("verified number: Invalid code");
                     Response challenge = context.form()
@@ -114,6 +117,7 @@ public class KeycloakSmsMobilenumberRequiredAction implements RequiredActionProv
                             .createForm("sms-verify-phone-validation.ftl");
                     context.challenge(challenge);
                     break;
+
                 case EXPIRED:
                     logger.debug("verified number: Expired");
                     challenge = context.form()
@@ -124,41 +128,24 @@ public class KeycloakSmsMobilenumberRequiredAction implements RequiredActionProv
             }
         } else {
             logger.debug("RequiredActionChain: post action failed");
-            // Response challenge = context.form()
-            //         .setError("sms-auth.not.send")
-            //         .createForm("sms-validation-error.ftl");
-            // context.challenge(challenge);
         }
-
     }
 
-    protected CODE_STATUS validateCode(RequiredActionContext context) {
+    protected CODE_STATUS validateCode(RequiredActionContext context, String enteredCode) {
         CODE_STATUS result = CODE_STATUS.INVALID;
 
         logger.debug("validateCode called ... ");
-        MultivaluedMap<String, String> formData = context.getHttpRequest().getDecodedFormParameters();
-        String enteredCode = formData.getFirst(KeycloakSmsConstants.ANSW_SMS_CODE);
+
         KeycloakSession session = context.getSession();
 
         List codeCreds = session.userCredentialManager().getStoredCredentialsByType(context.getRealm(), context.getUser(), KeycloakSmsConstants.USR_CRED_MDL_SMS_CODE);
-        /*List timeCreds = session.userCredentialManager().getStoredCredentialsByType(context.getRealm(), context.getUser(), KeycloakSmsAuthenticatorConstants.USR_CRED_MDL_SMS_EXP_TIME);*/
 
         CredentialModel expectedCode = (CredentialModel) codeCreds.get(0);
-        /*CredentialModel expTimeString = (CredentialModel) timeCreds.get(0);*/
 
         logger.debug("Expected code = " + expectedCode + "    entered code = " + enteredCode);
 
         if (expectedCode != null) {
             result = enteredCode.equals(expectedCode.getValue()) ? CODE_STATUS.VALID : CODE_STATUS.INVALID;
-            /*long now = new Date().getTime();
-
-            logger.debug("Valid code expires in " + (Long.parseLong(expTimeString.getValue()) - now) + " ms");
-            if (result == CODE_STATUS.VALID) {
-                if (Long.parseLong(expTimeString.getValue()) < now) {
-                    logger.debug("Code is expired !!");
-                    result = CODE_STATUS.EXPIRED;
-                }
-            }*/
         }
         logger.debug("result : " + result);
         return result;
