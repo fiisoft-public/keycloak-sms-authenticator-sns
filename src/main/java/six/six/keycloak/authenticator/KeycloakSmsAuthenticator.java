@@ -35,16 +35,11 @@ public class KeycloakSmsAuthenticator implements Authenticator {
         EXPIRED
     }
 
-
-    private boolean isOnlyForVerificationMode(boolean onlyForVerification,String mobileNumber,String mobileNumberVerified){
-        return (mobileNumber ==null || onlyForVerification==true && !mobileNumber.equals(mobileNumberVerified) );
-    }
-
-    private String getMobileNumber(UserModel user){
+    private String getMobileNumber(UserModel user) {
         return MobileNumberHelper.getMobileNumber(user);
     }
 
-    private String getMobileNumberVerified(UserModel user){
+    private String getMobileNumberVerified(UserModel user) {
         List<String> mobileNumberVerifieds = user.getAttribute(KeycloakSmsConstants.ATTR_MOBILE_VERIFIED);
 
         String mobileNumberVerified = null;
@@ -54,59 +49,70 @@ public class KeycloakSmsAuthenticator implements Authenticator {
         return  mobileNumberVerified;
     }
 
+    private boolean send2FACodeViaSMS(AuthenticationFlowContext context, String mobileNumber) {
+        logger.debug("send2FACodeViaSMS, phone: " + mobileNumber);
+
+        AuthenticatorConfigModel config = context.getAuthenticatorConfig();
+
+        long nrOfDigits = KeycloakSmsAuthenticatorUtil.getConfigLong(config, KeycloakSmsConstants.CONF_PRP_SMS_CODE_LENGTH, 8L);
+        logger.debug("Using nrOfDigits " + nrOfDigits);
+
+        long ttl = KeycloakSmsAuthenticatorUtil.getConfigLong(config, KeycloakSmsConstants.CONF_PRP_SMS_CODE_TTL, 10 * 60L); // 10 minutes in s
+
+        logger.debug("Using ttl " + ttl + " (s)");
+
+        String code = KeycloakSmsAuthenticatorUtil.getSmsCode(nrOfDigits);
+
+        this.storeSMSCode(context, code, new Date().getTime() + (ttl * 1000)); // s --> ms
+        logger.debug("Sending code to mobile number: " + mobileNumber + ", code is: " + code);
+        return KeycloakSmsAuthenticatorUtil.sendSmsCode(mobileNumber, code, context);
+    }
+
     @Override
     public void authenticate(AuthenticationFlowContext context) {
         logger.debug("authenticate called ... context = " + context);
+
         UserModel user = context.getUser();
         AuthenticatorConfigModel config = context.getAuthenticatorConfig();
 
-        boolean onlyForVerification=KeycloakSmsAuthenticatorUtil.getConfigBoolean(config, KeycloakSmsConstants.MOBILE_VERIFICATION_ENABLED);
-
-        String mobileNumber =getMobileNumber(user);
+        AuthenticationExecutionModel.Requirement requirement = context.getExecution().getRequirement();
+        
+        String mobileNumber = getMobileNumber(user);
         String mobileNumberVerified = getMobileNumberVerified(user);
 
-        if (onlyForVerification==false || isOnlyForVerificationMode(onlyForVerification, mobileNumber,mobileNumberVerified)){
-            if (mobileNumber != null) {
-                // The mobile number is configured --> send an SMS
-                long nrOfDigits = KeycloakSmsAuthenticatorUtil.getConfigLong(config, KeycloakSmsConstants.CONF_PRP_SMS_CODE_LENGTH, 8L);
-                logger.debug("Using nrOfDigits " + nrOfDigits);
+        logger.debug("SMS requirement setting is: " + requirement);
 
-
-                long ttl = KeycloakSmsAuthenticatorUtil.getConfigLong(config, KeycloakSmsConstants.CONF_PRP_SMS_CODE_TTL, 10 * 60L); // 10 minutes in s
-
-                logger.debug("Using ttl " + ttl + " (s)");
-
-                String code = KeycloakSmsAuthenticatorUtil.getSmsCode(nrOfDigits);
-
-                storeSMSCode(context, code, new Date().getTime() + (ttl * 1000)); // s --> ms
-                if (KeycloakSmsAuthenticatorUtil.sendSmsCode(mobileNumber, code, context)) {
-                    Response challenge = context.form().createForm("sms-validation.ftl");
-                    context.challenge(challenge);
-                } else {
-                    Response challenge = context.form()
-                            .setError("sms-auth.not.send")
-                            .createForm("sms-validation-error.ftl");
-                    context.failureChallenge(AuthenticationFlowError.INTERNAL_ERROR, challenge);
-                }
-            } else {
-                boolean isAskingFor=KeycloakSmsAuthenticatorUtil.getConfigBoolean(config, KeycloakSmsConstants.MOBILE_ASKFOR_ENABLED);
-                if(isAskingFor){
-                    //Enable access and ask for mobilenumber
-                    user.addRequiredAction(KeycloakSmsMobilenumberRequiredAction.PROVIDER_ID);
-                    context.success();
-                }else {
-                    // The mobile number is NOT configured --> complain
-                    Response challenge = context.form()
-                            .setError("sms-auth.not.mobile")
-                            .createForm("sms-validation-error.ftl");
-                    context.failureChallenge(AuthenticationFlowError.CLIENT_CREDENTIALS_SETUP_REQUIRED, challenge);
-                }
-            }
-        }else{
-            logger.debug("Skip SMS code because onlyForVerification " + onlyForVerification + " or  mobileNumber==mobileNumberVerified");
+        if (requirement == AuthenticationExecutionModel.Requirement.DISABLED || 
+              (requirement == AuthenticationExecutionModel.Requirement.OPTIONAL && mobileNumber == null) ) {
+            
+            logger.debug("SMSAuth is off or set Optional without phoneNumber -> authenticate");
             context.success();
-
+            return;
         }
+
+        if (mobileNumberVerified != null) {
+            logger.debug("SMSAuth is on, phone is verified -> send code");
+
+            boolean result = this.send2FACodeViaSMS(context, mobileNumberVerified);
+            logger.debug("SMS send status: " + result);
+
+            if (result) {
+                Response challenge = context.form().createForm("sms-validation.ftl");
+                context.challenge(challenge);
+            } else {
+                Response challenge = context.form()
+                    .setError("sms-auth.not.send")
+                    .createForm("sms-validation-error.ftl");
+                context.failureChallenge(AuthenticationFlowError.INTERNAL_ERROR, challenge);
+            }
+            return;
+        }
+
+
+        logger.debug("SMSAuth is on, and no verified phone -> ask for one");
+        KeycloakSmsAuthenticatorUtil.CURRENT_APP_CONFIG = config;
+        user.addRequiredAction(KeycloakSmsMobilenumberRequiredAction.PROVIDER_ID);
+        context.success();
     }
 
     @Override
@@ -123,26 +129,15 @@ public class KeycloakSmsAuthenticator implements Authenticator {
                 break;
 
             case INVALID:
-                if (context.getExecution().getRequirement() == AuthenticationExecutionModel.Requirement.OPTIONAL ||
-                        context.getExecution().getRequirement() == AuthenticationExecutionModel.Requirement.ALTERNATIVE) {
-                    logger.debug("Calling context.attempted()");
-                    context.attempted();
-                } else if (context.getExecution().getRequirement() == AuthenticationExecutionModel.Requirement.REQUIRED) {
-                    challenge = context.form()
-                            .setError("sms-auth.code.invalid")
-                            .createForm("sms-validation.ftl");
-                    context.failureChallenge(AuthenticationFlowError.INVALID_CREDENTIALS, challenge);
-                } else {
-                    // Something strange happened
-                    logger.warn("Undefined execution ...");
-                }
+                challenge = context.form()
+                        .setError("sms-auth.code.invalid")
+                        .createForm("sms-validation.ftl");
+                context.failureChallenge(AuthenticationFlowError.INVALID_CREDENTIALS, challenge);
                 break;
 
             case VALID:
                 context.success();
-                updateVerifiedMobilenumber(context);
                 break;
-
         }
     }
 
@@ -210,11 +205,13 @@ public class KeycloakSmsAuthenticator implements Authenticator {
         logger.debug("result : " + result);
         return result;
     }
+
     @Override
     public boolean requiresUser() {
         logger.debug("requiresUser called ... returning true");
         return true;
     }
+
     @Override
     public boolean configuredFor(KeycloakSession session, RealmModel realm, UserModel user) {
         logger.debug("configuredFor called ... session=" + session + ", realm=" + realm + ", user=" + user);
@@ -225,6 +222,7 @@ public class KeycloakSmsAuthenticator implements Authenticator {
     public void setRequiredActions(KeycloakSession session, RealmModel realm, UserModel user) {
         logger.debug("setRequiredActions called ... session=" + session + ", realm=" + realm + ", user=" + user);
     }
+
     @Override
     public void close() {
         logger.debug("close called ...");
