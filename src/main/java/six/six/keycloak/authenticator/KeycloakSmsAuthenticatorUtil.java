@@ -102,19 +102,26 @@ public class KeycloakSmsAuthenticatorUtil {
     }
 
     public static String createMessage(String text,String code, String mobileNumber) {
-        if(text !=null){
-            text = text.replaceAll("%sms-code%", code);
-            text = text.replaceAll("%phonenumber%", mobileNumber);
+        if (text == null) {
+            return text;
         }
-        return text;
+
+        return text
+            .replaceAll("%sms-code%", code)
+            .replaceAll("%phonenumber%", mobileNumber);
     }
 
-    public static String setDefaultCountryCodeIfZero(String mobileNumber, String prefix , String condition) {
+    public static String setDefaultCountryCodeIfZero(String mobileNumber, String prefix, String condition) {
 
-        if (prefix!=null && condition!=null && mobileNumber.startsWith(condition)) {
-            mobileNumber = prefix + mobileNumber.substring(1);
+        if (prefix == null || mobileNumber.startsWith("+")) {
+            return mobileNumber;
         }
-        return mobileNumber;
+
+        if (condition != null && mobileNumber.startsWith(condition)) {
+            return prefix + mobileNumber.substring(1);
+        }
+
+        return prefix + mobileNumber;
     }
 
     /**
@@ -254,9 +261,12 @@ public class KeycloakSmsAuthenticatorUtil {
                 default:
                     smsService = new SnsNotificationService();
             }
+            logger.debug("Original phone: " + mobileNumber);
 
             String addDefaultPrefix = setDefaultCountryCodeIfZero(mobileNumber, getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT), getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION));
             String actualPhone = checkMobileNumber(addDefaultPrefix);
+
+            logger.debug("After add prefix: " + addDefaultPrefix + " actualPhone: " + actualPhone);
 
             result = smsService.send(actualPhone, smsText, smsUsr, smsPwd);
           return result;
