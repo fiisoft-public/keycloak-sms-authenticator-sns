@@ -64,16 +64,16 @@ public class KeycloakSmsMobilenumberRequiredAction implements RequiredActionProv
             List<String> mobileNumber = new ArrayList<>();
             mobileNumber.add(phoneNumberInput);
 
-            
+
             user.setAttribute(KeycloakSmsConstants.ATTR_MOBILE, mobileNumber);
 
             logger.debug("It's time to verify this phone number");
 
             boolean result = this.send2FACodeViaSMS(context, MobileNumberHelper.getMobileNumber(user));
-            
+
             // config is used in send SMS code, after that, erase to avoid leak config
-            KeycloakSmsAuthenticatorUtil.CURRENT_APP_CONFIG = null;
-            
+            // KeycloakSmsAuthenticatorUtil.CURRENT_APP_CONFIG = null;
+
             logger.debug("SMS send status: " + result);
 
             if (result) {
