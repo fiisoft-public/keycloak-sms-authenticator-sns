@@ -74,6 +74,7 @@ public class KeycloakSmsAuthenticator implements Authenticator {
 
         UserModel user = context.getUser();
         AuthenticatorConfigModel config = context.getAuthenticatorConfig();
+        KeycloakSmsAuthenticatorUtil.CURRENT_APP_CONFIG = config;
 
         AuthenticationExecutionModel.Requirement requirement = context.getExecution().getRequirement();
         
@@ -110,7 +111,6 @@ public class KeycloakSmsAuthenticator implements Authenticator {
 
 
         logger.debug("SMSAuth is on, and no verified phone -> ask for one");
-        KeycloakSmsAuthenticatorUtil.CURRENT_APP_CONFIG = config;
         user.addRequiredAction(KeycloakSmsMobilenumberRequiredAction.PROVIDER_ID);
         context.success();
     }
