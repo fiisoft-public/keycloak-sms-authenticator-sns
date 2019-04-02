@@ -281,10 +281,12 @@ public class KeycloakSmsAuthenticatorUtil {
             throw new RuntimeException("Number of digits must be bigger than 0");
         }
 
+        String format = "%0" + nrOfDigits + "d";
         double maxValue = Math.pow(10.0, nrOfDigits); // 10 ^ nrOfDigits;
         Random r = new Random();
         long code = (long) (r.nextFloat() * maxValue);
-        return Long.toString(code);
+
+        return String.format(format, code);
     }
 
     /**
