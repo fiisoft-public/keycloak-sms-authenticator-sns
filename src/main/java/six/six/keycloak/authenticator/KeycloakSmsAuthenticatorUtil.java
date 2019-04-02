@@ -112,7 +112,7 @@ public class KeycloakSmsAuthenticatorUtil {
     }
 
     public static String setDefaultCountryCodeIfZero(String mobileNumber, String prefix, String condition) {
-
+        logger.debug("Mobile: " + mobileNumber + ", prefix: " + prefix + ", condition: " + condition);
         if (prefix == null || mobileNumber.startsWith("+")) {
             return mobileNumber;
         }
@@ -213,7 +213,7 @@ public class KeycloakSmsAuthenticatorUtil {
 
             String addDefaultPrefix = setDefaultCountryCodeIfZero(mobileNumber, getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT), getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION));
             String actualPhone = checkMobileNumber(addDefaultPrefix);
-
+            logger.debug("After add prefix: " + addDefaultPrefix + " actualPhone: " + actualPhone);
             result = smsService.send(actualPhone, smsText, smsUsr, smsPwd);
             return result;
        } catch(Exception e) {
@@ -269,7 +269,7 @@ public class KeycloakSmsAuthenticatorUtil {
             logger.debug("After add prefix: " + addDefaultPrefix + " actualPhone: " + actualPhone);
 
             result = smsService.send(actualPhone, smsText, smsUsr, smsPwd);
-          return result;
+            return result;
        } catch(Exception e) {
             logger.error("Fail to send SMS " ,e );
             return false;
@@ -295,22 +295,8 @@ public class KeycloakSmsAuthenticatorUtil {
      */
     public static boolean isPhoneNumberValid(String phoneNumber) {
         String formattedPhoneNumber = convertInternationalPrefix(phoneNumber);
-
-        String region;
-        if (isPossibleNationalNumber(formattedPhoneNumber)) {
-            region = "GB";
-        } else if (isInternationalNumber(formattedPhoneNumber)) {
-            region = null;
-        } else {
-            return true; // If the number cannot be interpreted as an international or possible UK phone number, do not attempt to validate it.
-        }
-
-        try {
-            PhoneNumber parsedPhoneNumber = PhoneNumberUtil.getInstance().parse(formattedPhoneNumber, region);
-            return PhoneNumberUtil.getInstance().isValidNumber(parsedPhoneNumber);
-        } catch (NumberParseException e) {
-            return false;
-        }
+        String regexp = "\\+?\\d{1,15}";
+        return formattedPhoneNumber.matches(regexp);
     }
 
     private static String convertInternationalPrefix(String phoneNumber) {
@@ -319,10 +305,6 @@ public class KeycloakSmsAuthenticatorUtil {
             return trimmedPhoneNumber.replaceFirst("00", "+");
         }
         return trimmedPhoneNumber;
-    }
-
-    private static boolean isPossibleNationalNumber(String phoneNumber) {
-        return phoneNumber.trim().startsWith("+44") || phoneNumber.trim().startsWith("07");
     }
 
     private static boolean isInternationalNumber(String phoneNumber) {
