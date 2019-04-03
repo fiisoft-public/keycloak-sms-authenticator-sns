@@ -295,8 +295,19 @@ public class KeycloakSmsAuthenticatorUtil {
      */
     public static boolean isPhoneNumberValid(String phoneNumber) {
         String formattedPhoneNumber = convertInternationalPrefix(phoneNumber);
-        String regexp = "\\+?\\d{1,15}";
-        return formattedPhoneNumber.matches(regexp);
+
+        if (!isInternationalNumber(phoneNumber)) {
+            String regexp = "\\+?\\d{1,15}";
+            return formattedPhoneNumber.matches(regexp);
+        }
+
+        try {
+            PhoneNumber parsedPhoneNumber = PhoneNumberUtil.getInstance().parse(formattedPhoneNumber, null);
+            logger.debug("isPhoneNumberValid, parsedPhoneNumber: " + parsedPhoneNumber + ", formattedPhoneNumber: " + parsedPhoneNumber);
+            return PhoneNumberUtil.getInstance().isValidNumber(parsedPhoneNumber);
+        } catch (NumberParseException e) {  
+            return false;
+        }
     }
 
     private static String convertInternationalPrefix(String phoneNumber) {
