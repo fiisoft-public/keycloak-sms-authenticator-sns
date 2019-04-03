@@ -112,7 +112,6 @@ public class KeycloakSmsAuthenticatorUtil {
     }
 
     public static String setDefaultCountryCodeIfZero(String mobileNumber, String prefix, String condition) {
-        logger.debug("Mobile: " + mobileNumber + ", prefix: " + prefix + ", condition: " + condition);
         if (prefix == null || mobileNumber.startsWith("+")) {
             return mobileNumber;
         }
@@ -213,7 +212,6 @@ public class KeycloakSmsAuthenticatorUtil {
 
             String addDefaultPrefix = setDefaultCountryCodeIfZero(mobileNumber, getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT), getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION));
             String actualPhone = checkMobileNumber(addDefaultPrefix);
-            logger.debug("After add prefix: " + addDefaultPrefix + " actualPhone: " + actualPhone);
             result = smsService.send(actualPhone, smsText, smsUsr, smsPwd);
             return result;
        } catch(Exception e) {
@@ -261,12 +259,9 @@ public class KeycloakSmsAuthenticatorUtil {
                 default:
                     smsService = new SnsNotificationService();
             }
-            logger.debug("Original phone: " + mobileNumber);
 
             String addDefaultPrefix = setDefaultCountryCodeIfZero(mobileNumber, getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_DEFAULT), getMessage(context, KeycloakSmsConstants.MSG_MOBILE_PREFIX_CONDITION));
             String actualPhone = checkMobileNumber(addDefaultPrefix);
-
-            logger.debug("After add prefix: " + addDefaultPrefix + " actualPhone: " + actualPhone);
 
             result = smsService.send(actualPhone, smsText, smsUsr, smsPwd);
             return result;
@@ -303,7 +298,6 @@ public class KeycloakSmsAuthenticatorUtil {
 
         try {
             PhoneNumber parsedPhoneNumber = PhoneNumberUtil.getInstance().parse(formattedPhoneNumber, null);
-            logger.debug("isPhoneNumberValid, parsedPhoneNumber: " + parsedPhoneNumber + ", formattedPhoneNumber: " + parsedPhoneNumber);
             return PhoneNumberUtil.getInstance().isValidNumber(parsedPhoneNumber);
         } catch (NumberParseException e) {  
             return false;
