@@ -19,7 +19,7 @@ import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import java.util.Date;
 import java.util.List;
-
+import java.util.Arrays;
 /**
  * Created by joris on 11/11/2016.
  */
@@ -68,6 +68,13 @@ public class KeycloakSmsAuthenticator implements Authenticator {
         return KeycloakSmsAuthenticatorUtil.sendSmsCode(mobileNumber, code, context);
     }
 
+    public String generateMobileNumberHint(String mobileNumber) {
+        char[] starSymbols = new char[mobileNumber.length() - 4];
+        Arrays.fill(starSymbols, '*');
+        String phoneAsLast4Digit = String.valueOf(starSymbols) + mobileNumber.substring(mobileNumber.length() - 4);
+        return phoneAsLast4Digit;
+    }
+
     @Override
     public void authenticate(AuthenticationFlowContext context) {
         logger.debug("authenticate called ... context = " + context);
@@ -96,12 +103,15 @@ public class KeycloakSmsAuthenticator implements Authenticator {
 
             boolean result = this.send2FACodeViaSMS(context, mobileNumberVerified);
             logger.debug("SMS send status: " + result);
-
+            String mobileNumberHint = this.generateMobileNumberHint(mobileNumberVerified);
             if (result) {
-                Response challenge = context.form().createForm("sms-validation.ftl");
+                Response challenge = context.form()
+                    .setAttribute("mobileNumberHint", mobileNumberHint)
+                    .createForm("sms-validation.ftl");
                 context.challenge(challenge);
             } else {
                 Response challenge = context.form()
+                    .setAttribute("mobileNumberHint", mobileNumberHint)
                     .setError("sms-auth.not.send")
                     .createForm("sms-validation-error.ftl");
                 context.failureChallenge(AuthenticationFlowError.INTERNAL_ERROR, challenge);
@@ -120,9 +130,15 @@ public class KeycloakSmsAuthenticator implements Authenticator {
         logger.debug("action called ... context = " + context);
         CODE_STATUS status = validateCode(context);
         Response challenge = null;
+
+        UserModel user = context.getUser();
+        String mobileNumberVerified = getMobileNumberVerified(user);
+        String mobileNumberHint = this.generateMobileNumberHint(mobileNumberVerified);
+
         switch (status) {
             case EXPIRED:
                 challenge = context.form()
+                        .setAttribute("mobileNumberHint", mobileNumberHint)
                         .setError("sms-auth.code.expired")
                         .createForm("sms-validation.ftl");
                 context.failureChallenge(AuthenticationFlowError.EXPIRED_CODE, challenge);
@@ -130,6 +146,7 @@ public class KeycloakSmsAuthenticator implements Authenticator {
 
             case INVALID:
                 challenge = context.form()
+                        .setAttribute("mobileNumberHint", mobileNumberHint)
                         .setError("sms-auth.code.invalid")
                         .createForm("sms-validation.ftl");
                 context.failureChallenge(AuthenticationFlowError.INVALID_CREDENTIALS, challenge);
