@@ -19,7 +19,7 @@ import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import java.util.Date;
 import java.util.List;
-import java.util.Arrays;
+
 /**
  * Created by joris on 11/11/2016.
  */
@@ -68,13 +68,6 @@ public class KeycloakSmsAuthenticator implements Authenticator {
         return KeycloakSmsAuthenticatorUtil.sendSmsCode(mobileNumber, code, context);
     }
 
-    public String generateMobileNumberHint(String mobileNumber) {
-        char[] starSymbols = new char[mobileNumber.length() - 4];
-        Arrays.fill(starSymbols, '*');
-        String phoneAsLast4Digit = String.valueOf(starSymbols) + mobileNumber.substring(mobileNumber.length() - 4);
-        return phoneAsLast4Digit;
-    }
-
     @Override
     public void authenticate(AuthenticationFlowContext context) {
         logger.debug("authenticate called ... context = " + context);
@@ -103,7 +96,7 @@ public class KeycloakSmsAuthenticator implements Authenticator {
 
             boolean result = this.send2FACodeViaSMS(context, mobileNumberVerified);
             logger.debug("SMS send status: " + result);
-            String mobileNumberHint = this.generateMobileNumberHint(mobileNumberVerified);
+            String mobileNumberHint = MobileNumberHelper.generateMobileNumberHint(mobileNumberVerified);
             if (result) {
                 Response challenge = context.form()
                     .setAttribute("mobileNumberHint", mobileNumberHint)
@@ -133,7 +126,7 @@ public class KeycloakSmsAuthenticator implements Authenticator {
 
         UserModel user = context.getUser();
         String mobileNumberVerified = getMobileNumberVerified(user);
-        String mobileNumberHint = this.generateMobileNumberHint(mobileNumberVerified);
+        String mobileNumberHint = MobileNumberHelper.generateMobileNumberHint(mobileNumberVerified);
 
         switch (status) {
             case EXPIRED:
