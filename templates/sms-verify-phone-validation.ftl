@@ -8,11 +8,11 @@
         <form id="kc-totp-login-form" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">
             <div class="${properties.kcFormGroupClass!}">
                 <div class="${properties.kcLabelWrapperClass!}">
-                    <label for="totp" class="${properties.kcLabelClass!}">${msg("sms-auth.instruction")}</label>
+                    <label for="totp" class="${properties.kcLabelClass!}">${msg("sms-auth.instruction", mobileNumberHint)}</label>
                 </div>
 
                 <div class="${properties.kcInputWrapperClass!}">
-                    <input id="totp" name="smsCode" type="text" class="${properties.kcInputClass!}" />
+                    <input id="totp" name="smsCode" type="text" class="${properties.kcInputClass!}" autofocus />
                 </div>
             </div>
 

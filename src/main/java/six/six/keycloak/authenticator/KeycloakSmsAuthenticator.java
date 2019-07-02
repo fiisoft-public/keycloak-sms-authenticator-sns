@@ -96,12 +96,15 @@ public class KeycloakSmsAuthenticator implements Authenticator {
 
             boolean result = this.send2FACodeViaSMS(context, mobileNumberVerified);
             logger.debug("SMS send status: " + result);
-
+            String mobileNumberHint = MobileNumberHelper.generateMobileNumberHint(mobileNumberVerified);
             if (result) {
-                Response challenge = context.form().createForm("sms-validation.ftl");
+                Response challenge = context.form()
+                    .setAttribute("mobileNumberHint", mobileNumberHint)
+                    .createForm("sms-validation.ftl");
                 context.challenge(challenge);
             } else {
                 Response challenge = context.form()
+                    .setAttribute("mobileNumberHint", mobileNumberHint)
                     .setError("sms-auth.not.send")
                     .createForm("sms-validation-error.ftl");
                 context.failureChallenge(AuthenticationFlowError.INTERNAL_ERROR, challenge);
@@ -120,9 +123,15 @@ public class KeycloakSmsAuthenticator implements Authenticator {
         logger.debug("action called ... context = " + context);
         CODE_STATUS status = validateCode(context);
         Response challenge = null;
+
+        UserModel user = context.getUser();
+        String mobileNumberVerified = getMobileNumberVerified(user);
+        String mobileNumberHint = MobileNumberHelper.generateMobileNumberHint(mobileNumberVerified);
+
         switch (status) {
             case EXPIRED:
                 challenge = context.form()
+                        .setAttribute("mobileNumberHint", mobileNumberHint)
                         .setError("sms-auth.code.expired")
                         .createForm("sms-validation.ftl");
                 context.failureChallenge(AuthenticationFlowError.EXPIRED_CODE, challenge);
@@ -130,6 +139,7 @@ public class KeycloakSmsAuthenticator implements Authenticator {
 
             case INVALID:
                 challenge = context.form()
+                        .setAttribute("mobileNumberHint", mobileNumberHint)
                         .setError("sms-auth.code.invalid")
                         .createForm("sms-validation.ftl");
                 context.failureChallenge(AuthenticationFlowError.INVALID_CREDENTIALS, challenge);

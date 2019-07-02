@@ -69,12 +69,16 @@ public class KeycloakSmsMobilenumberRequiredAction implements RequiredActionProv
 
             logger.debug("It's time to verify this phone number");
 
-            boolean result = this.send2FACodeViaSMS(context, MobileNumberHelper.getMobileNumber(user));
+            String activeMobileNumber = MobileNumberHelper.getMobileNumber(user);
+            boolean result = this.send2FACodeViaSMS(context, activeMobileNumber);
 
             logger.debug("SMS send status: " + result);
+            String mobileNumberHint = MobileNumberHelper.generateMobileNumberHint(activeMobileNumber);
 
             if (result) {
-                Response challenge = context.form().createForm("sms-verify-phone-validation.ftl");
+                Response challenge = context.form()
+                    .setAttribute("mobileNumberHint", mobileNumberHint)
+                    .createForm("sms-verify-phone-validation.ftl");
                 context.challenge(challenge);
 
             } else {
@@ -96,6 +100,9 @@ public class KeycloakSmsMobilenumberRequiredAction implements RequiredActionProv
             logger.debug("Check the smsCode to verify phone");
             CODE_STATUS status = this.validateCode(context, smsCode);
 
+            String activeMobileNumber = MobileNumberHelper.getMobileNumber(user);
+            String mobileNumberHint = MobileNumberHelper.generateMobileNumberHint(activeMobileNumber);
+
             switch (status) {
                 case VALID:
                     context.success();
@@ -110,6 +117,7 @@ public class KeycloakSmsMobilenumberRequiredAction implements RequiredActionProv
                 case INVALID:
                     logger.debug("verified number: Invalid code");
                     Response challenge = context.form()
+                            .setAttribute("mobileNumberHint", mobileNumberHint)
                             .setError("sms-auth.code.invalid")
                             .createForm("sms-verify-phone-validation.ftl");
                     context.challenge(challenge);
@@ -118,6 +126,7 @@ public class KeycloakSmsMobilenumberRequiredAction implements RequiredActionProv
                 case EXPIRED:
                     logger.debug("verified number: Expired");
                     challenge = context.form()
+                        .setAttribute("mobileNumberHint", mobileNumberHint)
                         .setError("sms-auth.code.expired")
                         .createForm("sms-verify-phone-validation.ftl");
                     context.challenge(challenge);

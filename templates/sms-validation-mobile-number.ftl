@@ -16,7 +16,7 @@
                 </div>
 
                 <div class="${properties.kcInputWrapperClass!}">
-                    <input id="mobile_number" name="mobile_number" type="text" class="${properties.kcInputClass!}" />
+                    <input id="mobile_number" name="mobile_number" type="text" class="${properties.kcInputClass!}" autofocus />
                 </div>
             </div>
 
